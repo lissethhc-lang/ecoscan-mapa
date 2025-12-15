@@ -135,10 +135,12 @@
 
         <div id="mapa"></div>
     </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
+    
+    <script>
         // Configuración de Firebase
         const firebaseConfig = {
             databaseURL: "https://ecoscan-tupac-default-rtdb.firebaseio.com/"
@@ -170,7 +172,7 @@
         });
 
         function cargarReportes() {
-            // RUTA CORREGIDA: 'reports'
+            // CORRECCIÓN 1: RUTA A 'reports'
             database.ref('reports').on('value', (snapshot) => { 
                 const datos = snapshot.val();
                 
@@ -186,11 +188,16 @@
                 todosLosReportes = [];
 
                 for (let key in datos) {
-                    // Convertir la etiqueta a minúsculas al cargar, por si acaso (PREVENCIÓN)
                     const reporte = datos[key];
+                    
+                    // CORRECCIÓN DE SEGURIDAD FINAL: Normalizar la etiqueta a minúsculas sin espacios
                     if (reporte.etiquetas) {
                         reporte.etiquetas = reporte.etiquetas.toLowerCase().replace(/\s/g, '');
+                    } else {
+                         // Si no hay etiqueta (posiblemente un reporte muy viejo), establecer un valor seguro.
+                         reporte.etiquetas = '';
                     }
+                    
                     todosLosReportes.push({ id: key, ...reporte });
                 }
 
@@ -207,7 +214,7 @@
         function actualizarEstadisticas() {
             const total = todosLosReportes.length;
             
-            // FILTROS CORREGIDOS: Usar 'plastico' y 'noplastico' (minúsculas)
+            // CORRECCIÓN FINAL: FILTROS A VALORES SIMPLIFICADOS ('plastico' y 'noplastico')
             const plastico = todosLosReportes.filter(r => r.etiquetas === 'plastico').length;
             const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'noplastico').length;
 
@@ -219,17 +226,16 @@
 
         function mostrarReportesEnMapa(reportes) {
             reportes.forEach(reporte => {
-                // CLAVE CORREGIDA: Usar 'Longitud' con L mayúscula
+                // CORRECCIÓN 2: USAR 'Longitud' con L mayúscula
                 if (!reporte.latitud || !reporte.Longitud) return;
 
-                // FILTRO CORREGIDO: Usar 'plastico' (minúsculas)
+                // CORRECCIÓN FINAL: FILTRO A 'plastico'
                 const esPlastico = reporte.etiquetas === 'plastico'; 
                 const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
 
-                // CLAVE CORREGIDA: Usar reporte.Longitud
+                // CORRECCIÓN 2: Usar reporte.Longitud
                 const marcador = L.marker([reporte.latitud, reporte.Longitud], { icon: icono }).addTo(mapa); 
 
-                // Intentar usar la fecha guardada, si no existe, usa 0
                 const fechaTimestamp = new Date(reporte.fecha || 0).toLocaleString('es-PE', { 
                     year: 'numeric', 
                     month: '2-digit', 
@@ -238,7 +244,6 @@
                     minute: '2-digit' 
                 });
                 
-                // Muestra la etiqueta original (aunque la filtramos en minúsculas)
                 const popupContent = `
                     <div style="text-align: center;">
                         <img src="${reporte.foto_url}" class="popup-imagen" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
@@ -254,7 +259,7 @@
         }
 
         function filtrar(tipo) {
-            // CORRECCIÓN FINAL: Mapear botones a valores en minúsculas sin espacio
+            // CORRECCIÓN FINAL: Mapear botones a valores simplificados
             let valorABuscar = tipo;
             if (tipo === 'No_Plastico') {
                 valorABuscar = 'noplastico'; 
@@ -264,6 +269,7 @@
 
             let reportesFiltrados = tipo === 'todos' 
                 ? todosLosReportes 
+                // FILTRO A VALOR SIMPLIFICADO
                 : todosLosReportes.filter(r => r.etiquetas === valorABuscar);
 
             marcadores.forEach(m => mapa.removeLayer(m));
@@ -276,3 +282,5 @@
 
         cargarReportes();
     </script>
+</body>
+</html>
