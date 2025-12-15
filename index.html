@@ -204,9 +204,9 @@
         function actualizarEstadisticas() {
             const total = todosLosReportes.length;
             
-            // CORRECCIÓN 2 y 3: Usar 'etiquetas' (clave) y 'No detecto' (valor)
+            // CORRECCIÓN 2 y 3: Usar 'etiquetas' (clave) y 'No Plastico' (valor)
             const plastico = todosLosReportes.filter(r => r.etiquetas === 'Plastico').length;
-            const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'No detecto').length;
+            const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'No Plastico').length;
 
             document.getElementById('totalReportes').textContent = total;
             document.getElementById('totalPlastico').textContent = plastico;
@@ -219,7 +219,7 @@
                 // CORRECCIÓN 2: Usar 'Longitud' con L mayúscula
                 if (!reporte.latitud || !reporte.Longitud) return;
 
-                // CORRECCIÓN 3: Usar 'etiquetas' y 'No detecto'
+                // CORRECCIÓN 3: Usar 'etiquetas' y 'No Plastico'
                 const esPlastico = reporte.etiquetas === 'Plastico'; 
                 const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
 
@@ -253,7 +253,7 @@
             // CORRECCIÓN 3: Mapear el valor del botón al valor de la DB
             let valorABuscar = tipo;
             if (tipo === 'No_Plastico') {
-                valorABuscar = 'No detecto'; 
+                valorABuscar = 'No Plastico'; 
             } else if (tipo === 'Plastico') {
                 valorABuscar = 'Plastico';
             }
@@ -276,3 +276,4 @@
     </script>
 </body>
 </html>
+
