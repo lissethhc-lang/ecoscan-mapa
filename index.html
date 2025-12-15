@@ -141,7 +141,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // https://console.firebase.google.com/u/0/project/ecoscan-tupac/database/ecoscan-tupac-default-rtdb/data/~2F
+        // Configuración de Firebase
         const firebaseConfig = {
             databaseURL: "https://ecoscan-tupac-default-rtdb.firebaseio.com/"
         };
@@ -172,7 +172,8 @@
         });
 
         function cargarReportes() {
-            database.ref('reports').on('value', (snapshot) => {
+            // CORRECCIÓN 1: Cambiado 'reportes' a 'reports' para coincidir con App Inventor
+            database.ref('reports').on('value', (snapshot) => { 
                 const datos = snapshot.val();
                 
                 if (!datos) {
@@ -202,26 +203,42 @@
 
         function actualizarEstadisticas() {
             const total = todosLosReportes.length;
-            const plastico = todosLosReportes.filter(r => r.etiqueta === 'Plastico').length;
-            const noPlastico = todosLosReportes.filter(r => r.etiqueta === 'No_Plastico').length;
+            
+            // CORRECCIÓN 2 y 3: Usar 'etiquetas' (clave) y 'No detecto' (valor)
+            const plastico = todosLosReportes.filter(r => r.etiquetas === 'Plastico').length;
+            const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'No detecto').length;
 
             document.getElementById('totalReportes').textContent = total;
             document.getElementById('totalPlastico').textContent = plastico;
             document.getElementById('totalNoPlastico').textContent = noPlastico;
+            document.getElementById('contador').textContent = `${total} reporte${total !== 1 ? 's' : ''}`;
         }
 
         function mostrarReportesEnMapa(reportes) {
             reportes.forEach(reporte => {
+                // CORRECCIÓN 2: Usar 'Longitud' con L mayúscula
                 if (!reporte.latitud || !reporte.Longitud) return;
 
-                const icono = reporte.etiqueta === 'Plastico' ? iconoPlastico : iconoNoPlastico;
-                const marcador = L.marker([reporte.latitud, reporte.Longitud], { icon: icono }).addTo(mapa);
+                // CORRECCIÓN 3: Usar 'etiquetas' y 'No detecto'
+                const esPlastico = reporte.etiquetas === 'Plastico'; 
+                const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
 
-                const fecha = new Date((reporte.timestamp || 0) * 1000).toLocaleString('es-PE');
+                // CORRECCIÓN 2: Usar reporte.Longitud
+                const marcador = L.marker([reporte.latitud, reporte.Longitud], { icon: icono }).addTo(mapa); 
+
+                const fecha = new Date(reporte.fecha).toLocaleString('es-PE', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                // CORRECCIÓN 2 y 3: Usar Longitud y esPlastico
                 const popupContent = `
                     <div style="text-align: center;">
                         <img src="${reporte.foto_url}" class="popup-imagen" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
-                        <h4>${reporte.etiqueta === 'Plastico' ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
+                        <h4>${esPlastico ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
                         <p>📅 ${fecha}</p>
                         <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.Longitud.toFixed(5)}</p>
                     </div>
@@ -230,25 +247,32 @@
                 marcador.bindPopup(popupContent);
                 marcadores.push(marcador);
             });
-
-            document.getElementById('contador').textContent = `${reportes.length} reporte${reportes.length !== 1 ? 's' : ''}`;
         }
 
         function filtrar(tipo) {
+            // CORRECCIÓN 3: Mapear el valor del botón al valor de la DB
+            let valorABuscar = tipo;
+            if (tipo === 'No_Plastico') {
+                valorABuscar = 'No detecto'; 
+            } else if (tipo === 'Plastico') {
+                valorABuscar = 'Plastico';
+            }
+
             let reportesFiltrados = tipo === 'todos' 
                 ? todosLosReportes 
-                : todosLosReportes.filter(r => r.etiqueta === tipo);
+                // CORRECCIÓN 3: Usar .etiquetas
+                : todosLosReportes.filter(r => r.etiquetas === valorABuscar);
 
             marcadores.forEach(m => mapa.removeLayer(m));
             marcadores = [];
             mostrarReportesEnMapa(reportesFiltrados);
 
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            // Usar 'event.currentTarget' en lugar de 'event.target' es más robusto en este contexto
+            document.querySelector(`[onclick="filtrar('${tipo}')"]`).classList.add('active');
         }
 
         cargarReportes();
     </script>
 </body>
 </html>
-
