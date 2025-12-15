@@ -211,76 +211,110 @@
             });
         }
 
-        function actualizarEstadisticas() {
-            const total = todosLosReportes.length;
-            
-            // CORRECCIÓN FINAL: FILTROS A VALORES SIMPLIFICADOS ('plastico' y 'noplastico')
-            const plastico = todosLosReportes.filter(r => r.etiquetas === 'plastico').length;
-            const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'noplastico').length;
+        // Función actualizarEstadisticas corregida
+function actualizarEstadisticas() {
+    const total = todosLosReportes.length;
+    
+    const plastico = todosLosReportes.filter(r => {
+        if (!r.etiqueta) return false;
+        const etiq = r.etiqueta.toLowerCase().replace(/[_\s]/g, '');
+        return etiq === 'plastico';
+    }).length;
+    
+    const noPlastico = todosLosReportes.filter(r => {
+        if (!r.etiqueta) return false;
+        const etiq = r.etiqueta.toLowerCase().replace(/[_\s]/g, '');
+        return etiq === 'noplastico';
+    }).length;
 
-            document.getElementById('totalReportes').textContent = total;
-            document.getElementById('totalPlastico').textContent = plastico;
-            document.getElementById('totalNoPlastico').textContent = noPlastico;
-            document.getElementById('contador').textContent = `${total} reporte${total !== 1 ? 's' : ''}`;
-        }
+    console.log(`📊 Total: ${total}, Plástico: ${plastico}, No Plástico: ${noPlastico}`);
 
-        function mostrarReportesEnMapa(reportes) {
-            reportes.forEach(reporte => {
-                // CORRECCIÓN 2: USAR 'Longitud' con L mayúscula
-                if (!reporte.latitud || !reporte.Longitud) return;
+    document.getElementById('totalReportes').textContent = total;
+    document.getElementById('totalPlastico').textContent = plastico;
+    document.getElementById('totalNoPlastico').textContent = noPlastico;
+}
 
-                // CORRECCIÓN FINAL: FILTRO A 'plastico'
-                const esPlastico = reporte.etiquetas === 'plastico'; 
-                const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
+// Función mostrarReportesEnMapa corregida
+function mostrarReportesEnMapa(reportes) {
+    reportes.forEach(reporte => {
+        if (!reporte.latitud || !reporte.longitud) return;
 
-                // CORRECCIÓN 2: Usar reporte.Longitud
-                const marcador = L.marker([reporte.latitud, reporte.Longitud], { icon: icono }).addTo(mapa); 
+        const etiq = reporte.etiqueta ? reporte.etiqueta.toLowerCase().replace(/[_\s]/g, '') : '';
+        const icono = etiq === 'plastico' ? iconoPlastico : iconoNoPlastico;
+        
+        const marcador = L.marker([reporte.latitud, reporte.longitud], { icon: icono })
+            .addTo(mapa);
 
-                const fechaTimestamp = new Date(reporte.fecha || 0).toLocaleString('es-PE', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-                
-                const popupContent = `
-                    <div style="text-align: center;">
-                        <img src="${reporte.foto_url}" class="popup-imagen" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
-                        <h4>${esPlastico ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
-                        <p>📅 ${fechaTimestamp}</p>
-                        <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.Longitud.toFixed(5)}</p>
-                    </div>
-                `;
-                
-                marcador.bindPopup(popupContent);
-                marcadores.push(marcador);
-            });
-        }
+        const fecha = formatearFecha(reporte.fecha || reporte.timestamp);
+        const popupContent = `
+            <div style="text-align: center; min-width: 200px;">
+                <img src="${reporte.foto_url || 'https://via.placeholder.com/200x150?text=Sin+foto'}" class="popup-imagen" alt="Foto del reporte" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
+                <h4 style="margin: 10px 0; color: #2d3748;">${etiq === 'plastico' ? '🔴 Plástico Detectado' : '🟢 Sin Plástico'}</h4>
+                <p style="margin: 5px 0; color: #4a5568;"><strong>📅 Fecha:</strong> ${fecha}</p>
+                <p style="margin: 5px 0; color: #4a5568;"><strong>📍 Ubicación:</strong><br>${reporte.latitud.toFixed(5)}, ${reporte.longitud.toFixed(5)}</p>
+            </div>
+        `;
+        
+        marcador.bindPopup(popupContent, { maxWidth: 250 });
+        marcadores.push(marcador);
+    });
 
-        function filtrar(tipo) {
-            // CORRECCIÓN FINAL: Mapear botones a valores simplificados
-            let valorABuscar = tipo;
-            if (tipo === 'No_Plastico') {
-                valorABuscar = 'noplastico'; 
-            } else if (tipo === 'Plastico') {
-                valorABuscar = 'plastico';
-            }
+    document.getElementById('contador').textContent = `${reportes.length} reporte${reportes.length !== 1 ? 's' : ''}`;
+}
 
-            let reportesFiltrados = tipo === 'todos' 
-                ? todosLosReportes 
-                // FILTRO A VALOR SIMPLIFICADO
-                : todosLosReportes.filter(r => r.etiquetas === valorABuscar);
+// Función mostrarReportesEnLista corregida
+function mostrarReportesEnLista(reportes) {
+    const lista = document.getElementById('listaReportes');
+    
+    if (reportes.length === 0) {
+        lista.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">No hay reportes con este filtro.</p>';
+        return;
+    }
 
-            marcadores.forEach(m => mapa.removeLayer(m));
-            marcadores = [];
-            mostrarReportesEnMapa(reportesFiltrados);
+    lista.innerHTML = reportes.slice(0, 10).map(reporte => {
+        const fecha = formatearFecha(reporte.fecha || reporte.timestamp);
+        const etiq = reporte.etiqueta ? reporte.etiqueta.toLowerCase().replace(/[_\s]/g, '') : '';
+        const esPlastico = etiq === 'plastico';
+        
+        return `
+            <div class="reporte-item ${esPlastico ? 'plastico' : 'no-plastico'}" onclick="verEnMapa(${reporte.latitud}, ${reporte.longitud})">
+                <img src="${reporte.foto_url || 'https://via.placeholder.com/60?text=?'}" class="reporte-thumb" alt="Foto" onerror="this.src='https://via.placeholder.com/60?text=?'">
+                <div class="reporte-info">
+                    <div class="reporte-etiqueta">${esPlastico ? '🔴 Plástico' : '🟢 Sin Plástico'}</div>
+                    <div class="reporte-fecha">📅 ${fecha}</div>
+                    <div class="reporte-ubicacion">📍 ${reporte.latitud.toFixed(5)}, ${reporte.longitud.toFixed(5)}</div>
+                </div>
+                <div class="reporte-badge ${esPlastico ? 'badge-plastico' : 'badge-no-plastico'}">${reporte.etiqueta}</div>
+            </div>
+        `;
+    }).join('');
+}
+// Función filtrar corregida
+function filtrar(tipo) {
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
 
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`[onclick="filtrar('${tipo}')"]`).classList.add('active');
-        }
+    let reportesFiltrados;
+    if (tipo === 'todos') {
+        reportesFiltrados = todosLosReportes;
+    } else {
+        reportesFiltrados = todosLosReportes.filter(r => {
+            const etiq = r.etiqueta ? r.etiqueta.toLowerCase().replace(/[_\s]/g, '') : '';
+            const tipoNorm = tipo.toLowerCase().replace(/[_\s]/g, '');
+            return etiq === tipoNorm;
+        });
+    }
 
+    marcadores.forEach(m => mapa.removeLayer(m));
+    marcadores = [];
+
+    mostrarReportesEnMapa(reportesFiltrados);
+    mostrarReportesEnLista(reportesFiltrados);
+}
         cargarReportes();
     </script>
 </body>
 </html>
+
