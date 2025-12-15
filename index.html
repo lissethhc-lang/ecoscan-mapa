@@ -1,176 +1,318 @@
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoScan Túpac - Mapa</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* Estilos CSS (Dejamos los estilos ya establecidos) */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        header h1 { color: #2d3748; font-size: 28px; }
+        header p { color: #718096; margin-top: 5px; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+        .filters {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-btn {
+            background: #e0e0e0;
+            color: #666;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .filter-btn:hover { transform: translateY(-2px); }
+        .filter-btn.active {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        #contador {
+            margin-left: auto;
+            color: #2d3748;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        #mapa {
+            width: 100%;
+            height: 600px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-number.plastico { color: #dc3545; }
+        .stat-number.no-plastico { color: #28a745; }
+        .stat-number.total { color: #667eea; }
+        .stat-label { color: #718096; font-size: 14px; }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+        .popup-imagen {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        @media (max-width: 768px) {
+            #mapa { height: 400px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🌿 EcoScan Túpac - Mapa Comunitario</h1>
+        <p>Reportes de residuos en Lagunas, Chiclayo, Perú</p>
+    </header>
+
+    <div class="loading" id="loading">
+        <div>⏳ Cargando reportes...</div>
+    </div>
+
+    <div class="container" id="contenido" style="display: none;">
+        <div class="filters">
+            <button class="filter-btn active" onclick="filtrar('todos')">📊 Todos</button>
+            <button class="filter-btn" onclick="filtrar('Plastico')">🔴 Plástico</button>
+            <button class="filter-btn" onclick="filtrar('No_Plastico')">🟢 Sin Plástico</button>
+            <span id="contador">0 reportes</span>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number total" id="totalReportes">0</div>
+                <div class="stat-label">Total Reportes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number plastico" id="totalPlastico">0</div>
+                <div class="stat-label">Plástico</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number no-plastico" id="totalNoPlastico">0</div>
+                <div class="stat-label">No Plástico</div>
+            </div>
+        </div>
+
+        <div id="mapa"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-<script>
-    // Configuración de Firebase
-    const firebaseConfig = {
-        databaseURL: "https://ecoscan-tupac-default-rtdb.firebaseio.com/"
-    };
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            databaseURL: "https://ecoscan-tupac-default-rtdb.firebaseio.com/"
+        };
 
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-    // INICIALIZACIÓN CRÍTICA: Aseguramos que el mapa se inicie primero
-    const mapa = L.map('mapa').setView([-6.7067, -79.9067], 14);
+        // Inicializar mapa (DEBE SER LO PRIMERO EN EJECUTARSE)
+        const mapa = L.map('mapa').setView([-6.7067, -79.9067], 14);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(mapa);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(mapa);
 
-    let marcadores = [];
-    let todosLosReportes = [];
+        let marcadores = [];
+        let todosLosReportes = [];
 
-    const iconoPlastico = L.divIcon({
-        html: '<div style="background: #dc3545; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🔴</div>',
-        className: '',
-        iconSize: [30, 30]
-    });
+        const iconoPlastico = L.divIcon({
+            html: '<div style="background: #dc3545; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🔴</div>',
+            className: '',
+            iconSize: [30, 30]
+        });
 
-    const iconoNoPlastico = L.divIcon({
-        html: '<div style="background: #28a745; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🟢</div>',
-        className: '',
-        iconSize: [30, 30]
-    });
+        const iconoNoPlastico = L.divIcon({
+            html: '<div style="background: #28a745; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🟢</div>',
+            className: '',
+            iconSize: [30, 30]
+        });
 
-    // Función auxiliar para normalizar texto (la clave para el éxito)
-    function normalizarEtiqueta(etiqueta) {
-        if (!etiqueta) return '';
-        // Convierte a minúsculas y elimina espacios o guiones bajos
-        return String(etiqueta).toLowerCase().replace(/[_\s]/g, '');
-    }
-
-    // FUNCIÓN DE FECHA SIMPLIFICADA (EVITA FALLOS)
-    function formatearFecha(timestamp) {
-        let fechaObj;
-        if (typeof timestamp === 'string' && timestamp.length === 15 && timestamp.includes('_')) {
-             // Formato de App Inventor: YYYYMMDD_HHMMSS
-             const year = timestamp.substring(0, 4);
-             const month = timestamp.substring(4, 6);
-             const day = timestamp.substring(6, 8);
-             const hour = timestamp.substring(9, 11);
-             const minute = timestamp.substring(11, 13);
-             const second = timestamp.substring(13, 15);
-             
-             // Creamos un string de fecha compatible: YYYY-MM-DDTHH:MM:SS
-             fechaObj = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
-
-        } else if (typeof timestamp === 'number') {
-            fechaObj = new Date(timestamp);
-        } else {
-            return "Fecha desconocida";
+        // Función auxiliar para normalizar texto (Clave: minúsculas sin espacios/guiones)
+        function normalizarEtiqueta(etiqueta) {
+            if (!etiqueta) return '';
+            return String(etiqueta).toLowerCase().replace(/[_\s]/g, '');
         }
 
-        return fechaObj.toLocaleString('es-PE', { 
-            year: 'numeric', 
-            month: '2-digit', 
-            day: '2-digit', 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    }
+        // Función auxiliar para formatear fecha
+        function formatearFecha(timestamp) {
+            let fechaObj;
+            if (typeof timestamp === 'string' && timestamp.length === 15 && timestamp.includes('_')) {
+                 const year = timestamp.substring(0, 4);
+                 const month = timestamp.substring(4, 6);
+                 const day = timestamp.substring(6, 8);
+                 const hour = timestamp.substring(9, 11);
+                 const minute = timestamp.substring(11, 13);
+                 const second = timestamp.substring(13, 15);
+                 
+                 fechaObj = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+
+            } else if (typeof timestamp === 'number') {
+                fechaObj = new Date(timestamp);
+            } else {
+                return "Fecha/Hora Desconocida";
+            }
+
+            return fechaObj.toLocaleString('es-PE', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
 
 
-    function cargarReportes() {
-        document.getElementById('loading').style.display = 'block';
+        function cargarReportes() {
+            database.ref('reports').on('value', (snapshot) => { 
+                const datos = snapshot.val();
+                
+                if (!datos) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('contenido').style.display = 'block';
+                    document.getElementById('contador').textContent = 'No hay reportes';
+                    return;
+                }
 
-        database.ref('reports').on('value', (snapshot) => { 
-            const datos = snapshot.val();
-            
-            if (!datos) {
+                marcadores.forEach(m => mapa.removeLayer(m));
+                marcadores = [];
+                todosLosReportes = [];
+
+                for (let key in datos) {
+                    const reporte = datos[key];
+                    
+                    // CRÍTICO: Leemos 'etiqueta' (singular)
+                    const etiquetaNormalizada = normalizarEtiqueta(reporte.etiqueta); 
+                    
+                    todosLosReportes.push({ 
+                        id: key, 
+                        ...reporte,
+                        // CRÍTICO: Leemos 'Longitud' (L mayúscula) y lo unificamos a 'longitud' (minúscula)
+                        longitud: reporte.Longitud || reporte.longitud || 0,
+                        etiqueta_normalizada: etiquetaNormalizada 
+                    });
+                }
+
+                todosLosReportes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                actualizarEstadisticas();
+                mostrarReportesEnMapa(todosLosReportes);
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('contenido').style.display = 'block';
-                document.getElementById('contador').textContent = 'No hay reportes';
-                return;
+            });
+        }
+
+        function actualizarEstadisticas() {
+            const total = todosLosReportes.length;
+            
+            // Filtramos por los valores normalizados
+            const plastico = todosLosReportes.filter(r => r.etiqueta_normalizada === 'plastico').length;
+            const noPlastico = todosLosReportes.filter(r => r.etiqueta_normalizada === 'noplastico').length;
+
+            document.getElementById('totalReportes').textContent = total;
+            document.getElementById('totalPlastico').textContent = plastico;
+            document.getElementById('totalNoPlastico').textContent = noPlastico;
+            document.getElementById('contador').textContent = `${total} reporte${total !== 1 ? 's' : ''}`;
+        }
+
+        function mostrarReportesEnMapa(reportes) {
+            reportes.forEach(reporte => {
+                if (!reporte.latitud || !reporte.longitud) return;
+
+                const esPlastico = reporte.etiqueta_normalizada === 'plastico'; 
+                const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
+
+                const marcador = L.marker([reporte.latitud, reporte.longitud], { icon: icono }).addTo(mapa); 
+
+                const fecha = formatearFecha(reporte.fecha || reporte.timestamp);
+                
+                const popupContent = `
+                    <div style="text-align: center;">
+                        <img src="${reporte.foto_url || 'https://via.placeholder.com/200x150?text=Sin+foto'}" class="popup-imagen" alt="Foto del reporte" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
+                        <h4>${esPlastico ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
+                        <p>📅 ${fecha}</p>
+                        <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.longitud.toFixed(5)}</p>
+                    </div>
+                `;
+                
+                marcador.bindPopup(popupContent);
+                marcadores.push(marcador);
+            });
+            document.getElementById('contador').textContent = `${reportes.length} reporte${reportes.length !== 1 ? 's' : ''}`;
+        }
+
+        // FUNCIÓN FILTRAR CON CORRECCIÓN FINAL
+        function filtrar(tipo) {
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            
+            const botonClicado = document.querySelector(`[onclick="filtrar('${tipo}')"]`);
+            if (botonClicado) {
+                botonClicado.classList.add('active');
+            }
+
+            // Normalizamos el tipo de filtro buscado
+            const tipoNormalizado = normalizarEtiqueta(tipo);
+
+            let reportesFiltrados = todosLosReportes;
+            
+            if (tipoNormalizado !== 'todos') {
+                reportesFiltrados = todosLosReportes.filter(r => {
+                    // Comparamos el valor normalizado de la BD con el valor normalizado del filtro
+                    return r.etiqueta_normalizada === tipoNormalizado;
+                });
             }
 
             marcadores.forEach(m => mapa.removeLayer(m));
             marcadores = [];
-            todosLosReportes = [];
-
-            for (let key in datos) {
-                const reporte = datos[key];
-                
-                // USAMOS reporte.etiqueta (singular)
-                const etiquetaNormalizada = normalizarEtiqueta(reporte.etiqueta); 
-                
-                todosLosReportes.push({ 
-                    id: key, 
-                    ...reporte,
-                    // CORRECCIÓN: UNIFICAMOS LONGITUD A MINÚSCULAS
-                    longitud: reporte.Longitud || reporte.longitud || 0,
-                    etiqueta_normalizada: etiquetaNormalizada 
-                });
-            }
-
-            todosLosReportes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-            actualizarEstadisticas();
-            mostrarReportesEnMapa(todosLosReportes);
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('contenido').style.display = 'block';
-        });
-    }
-
-    function actualizarEstadisticas() {
-        const total = todosLosReportes.length;
-        
-        const plastico = todosLosReportes.filter(r => r.etiqueta_normalizada === 'plastico').length;
-        const noPlastico = todosLosReportes.filter(r => r.etiqueta_normalizada === 'noplastico').length;
-
-        document.getElementById('totalReportes').textContent = total;
-        document.getElementById('totalPlastico').textContent = plastico;
-        document.getElementById('totalNoPlastico').textContent = noPlastico;
-        document.getElementById('contador').textContent = `${total} reporte${total !== 1 ? 's' : ''}`;
-    }
-
-    function mostrarReportesEnMapa(reportes) {
-        reportes.forEach(reporte => {
-            if (!reporte.latitud || !reporte.longitud) return;
-
-            const esPlastico = reporte.etiqueta_normalizada === 'plastico'; 
-            const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
-
-            const marcador = L.marker([reporte.latitud, reporte.longitud], { icon: icono }).addTo(mapa); 
-
-            const fecha = formatearFecha(reporte.fecha || reporte.timestamp);
-            
-            const popupContent = `
-                <div style="text-align: center;">
-                    <img src="${reporte.foto_url || 'https://via.placeholder.com/200x150?text=Sin+foto'}" class="popup-imagen" alt="Foto del reporte" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
-                    <h4>${esPlastico ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
-                    <p>📅 ${fecha}</p>
-                    <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.longitud.toFixed(5)}</p>
-                </div>
-            `;
-            
-            marcador.bindPopup(popupContent);
-            marcadores.push(marcador);
-        });
-        document.getElementById('contador').textContent = `${reportes.length} reporte${reportes.length !== 1 ? 's' : ''}`;
-    }
-
-    function filtrar(tipo) {
-        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-        
-        const botonClicado = document.querySelector(`[onclick="filtrar('${tipo}')"]`);
-        if (botonClicado) {
-            botonClicado.classList.add('active');
+            mostrarReportesEnMapa(reportesFiltrados);
         }
 
-        let reportesFiltrados = tipo === 'todos' 
-            ? todosLosReportes 
-            : todosLosReportes.filter(r => {
-                const tipoNorm = normalizarEtiqueta(tipo);
-                return r.etiqueta_normalizada === tipoNorm;
-            });
-
-        marcadores.forEach(m => mapa.removeLayer(m));
-        marcadores = [];
-        mostrarReportesEnMapa(reportesFiltrados);
-    }
-
-    // Iniciamos la carga de reportes al final
-    cargarReportes();
-</script>
+        cargarReportes();
+    </script>
+</body>
+</html>
