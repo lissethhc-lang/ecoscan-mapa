@@ -172,7 +172,7 @@
         });
 
         function cargarReportes() {
-            database.ref('reportes').on('value', (snapshot) => {
+            database.ref('reports').on('value', (snapshot) => {
                 const datos = snapshot.val();
                 
                 if (!datos) {
@@ -212,10 +212,10 @@
 
         function mostrarReportesEnMapa(reportes) {
             reportes.forEach(reporte => {
-                if (!reporte.latitud || !reporte.longitud) return;
+                if (!reporte.latitud || !reporte.Longitud) return;
 
                 const icono = reporte.etiqueta === 'Plastico' ? iconoPlastico : iconoNoPlastico;
-                const marcador = L.marker([reporte.latitud, reporte.longitud], { icon: icono }).addTo(mapa);
+                const marcador = L.marker([reporte.latitud, reporte.Longitud], { icon: icono }).addTo(mapa);
 
                 const fecha = new Date((reporte.timestamp || 0) * 1000).toLocaleString('es-PE');
                 const popupContent = `
@@ -223,7 +223,7 @@
                         <img src="${reporte.foto_url}" class="popup-imagen" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
                         <h4>${reporte.etiqueta === 'Plastico' ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
                         <p>📅 ${fecha}</p>
-                        <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.longitud.toFixed(5)}</p>
+                        <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.Longitud.toFixed(5)}</p>
                     </div>
                 `;
                 
@@ -251,3 +251,4 @@
     </script>
 </body>
 </html>
+
