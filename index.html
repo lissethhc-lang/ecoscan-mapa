@@ -103,7 +103,7 @@
 <body>
     <header>
         <h1>🌿 EcoScan Túpac - Mapa Comunitario</h1>
-        <p>Reportes de residuos en Laguna, Chiclayo, Perú</p>
+        <p>Reportes de residuos en Lagunas, Chiclayo, Perú</p>
     </header>
 
     <div class="loading" id="loading">
@@ -135,12 +135,10 @@
 
         <div id="mapa"></div>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <script>
+<script>
         // Configuración de Firebase
         const firebaseConfig = {
             databaseURL: "https://ecoscan-tupac-default-rtdb.firebaseio.com/"
@@ -172,7 +170,7 @@
         });
 
         function cargarReportes() {
-            // CORRECCIÓN 1: Cambiado 'reportes' a 'reports' para coincidir con App Inventor
+            // RUTA CORREGIDA: 'reports'
             database.ref('reports').on('value', (snapshot) => { 
                 const datos = snapshot.val();
                 
@@ -188,7 +186,12 @@
                 todosLosReportes = [];
 
                 for (let key in datos) {
-                    todosLosReportes.push({ id: key, ...datos[key] });
+                    // Convertir la etiqueta a minúsculas al cargar, por si acaso (PREVENCIÓN)
+                    const reporte = datos[key];
+                    if (reporte.etiquetas) {
+                        reporte.etiquetas = reporte.etiquetas.toLowerCase().replace(/\s/g, '');
+                    }
+                    todosLosReportes.push({ id: key, ...reporte });
                 }
 
                 todosLosReportes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -204,9 +207,9 @@
         function actualizarEstadisticas() {
             const total = todosLosReportes.length;
             
-            // CORRECCIÓN 2 y 3: Usar 'etiquetas' (clave) y 'No Plastico' (valor)
-            const plastico = todosLosReportes.filter(r => r.etiquetas === 'Plastico').length;
-            const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'No Plastico').length;
+            // FILTROS CORREGIDOS: Usar 'plastico' y 'noplastico' (minúsculas)
+            const plastico = todosLosReportes.filter(r => r.etiquetas === 'plastico').length;
+            const noPlastico = todosLosReportes.filter(r => r.etiquetas === 'noplastico').length;
 
             document.getElementById('totalReportes').textContent = total;
             document.getElementById('totalPlastico').textContent = plastico;
@@ -216,17 +219,18 @@
 
         function mostrarReportesEnMapa(reportes) {
             reportes.forEach(reporte => {
-                // CORRECCIÓN 2: Usar 'Longitud' con L mayúscula
+                // CLAVE CORREGIDA: Usar 'Longitud' con L mayúscula
                 if (!reporte.latitud || !reporte.Longitud) return;
 
-                // CORRECCIÓN 3: Usar 'etiquetas' y 'No Plastico'
-                const esPlastico = reporte.etiquetas === 'Plastico'; 
+                // FILTRO CORREGIDO: Usar 'plastico' (minúsculas)
+                const esPlastico = reporte.etiquetas === 'plastico'; 
                 const icono = esPlastico ? iconoPlastico : iconoNoPlastico;
 
-                // CORRECCIÓN 2: Usar reporte.Longitud
+                // CLAVE CORREGIDA: Usar reporte.Longitud
                 const marcador = L.marker([reporte.latitud, reporte.Longitud], { icon: icono }).addTo(mapa); 
 
-                const fecha = new Date(reporte.fecha).toLocaleString('es-PE', { 
+                // Intentar usar la fecha guardada, si no existe, usa 0
+                const fechaTimestamp = new Date(reporte.fecha || 0).toLocaleString('es-PE', { 
                     year: 'numeric', 
                     month: '2-digit', 
                     day: '2-digit', 
@@ -234,12 +238,12 @@
                     minute: '2-digit' 
                 });
                 
-                // CORRECCIÓN 2 y 3: Usar Longitud y esPlastico
+                // Muestra la etiqueta original (aunque la filtramos en minúsculas)
                 const popupContent = `
                     <div style="text-align: center;">
                         <img src="${reporte.foto_url}" class="popup-imagen" onerror="this.src='https://via.placeholder.com/200x150?text=Imagen+no+disponible'">
                         <h4>${esPlastico ? '🔴 Plástico' : '🟢 No Plástico'}</h4>
-                        <p>📅 ${fecha}</p>
+                        <p>📅 ${fechaTimestamp}</p>
                         <p>📍 ${reporte.latitud.toFixed(5)}, ${reporte.Longitud.toFixed(5)}</p>
                     </div>
                 `;
@@ -250,17 +254,16 @@
         }
 
         function filtrar(tipo) {
-            // CORRECCIÓN 3: Mapear el valor del botón al valor de la DB
+            // CORRECCIÓN FINAL: Mapear botones a valores en minúsculas sin espacio
             let valorABuscar = tipo;
             if (tipo === 'No_Plastico') {
-                valorABuscar = 'No Plastico'; 
+                valorABuscar = 'noplastico'; 
             } else if (tipo === 'Plastico') {
-                valorABuscar = 'Plastico';
+                valorABuscar = 'plastico';
             }
 
             let reportesFiltrados = tipo === 'todos' 
                 ? todosLosReportes 
-                // CORRECCIÓN 3: Usar .etiquetas
                 : todosLosReportes.filter(r => r.etiquetas === valorABuscar);
 
             marcadores.forEach(m => mapa.removeLayer(m));
@@ -268,12 +271,8 @@
             mostrarReportesEnMapa(reportesFiltrados);
 
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            // Usar 'event.currentTarget' en lugar de 'event.target' es más robusto en este contexto
             document.querySelector(`[onclick="filtrar('${tipo}')"]`).classList.add('active');
         }
 
         cargarReportes();
     </script>
-</body>
-</html>
-
